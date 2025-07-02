@@ -36,8 +36,8 @@ STREAMERS = {
         'username': 'jasyygirl'
     },
     'witschgal': {
-        'platform': 'tiktok',
-        'url': 'https://www.tiktok.com/@witschgal_official',
+        'platform': 'twitch',
+        'url': 'https://www.twitch.tv/witschgal',
         'username': 'witschgal'
     }
 }
@@ -157,6 +157,26 @@ class StreamBot:
 
 stream_bot = StreamBot()
 
+# HTTP Server für UptimeRobot
+from aiohttp import web
+
+async def health_check(request):
+    return web.Response(text="Bot läuft! Chaosquartier ist bereit! 🎪", status=200)
+
+async def start_web_server():
+    """Startet den HTTP Server für UptimeRobot"""
+    app = web.Application()
+    app.router.add_get('/', health_check)
+    app.router.add_get('/health', health_check)
+    
+    runner = web.AppRunner(app)
+    await runner.setup()
+    
+    port = int(os.environ.get('PORT', 8080))
+    site = web.TCPSite(runner, '0.0.0.0', port)
+    await site.start()
+    print(f"🌐 Web Server läuft auf Port {port}")
+
 @bot.event
 async def on_ready():
     print(f'✅ {bot.user} ist bereit für das Chaosquartier!')
@@ -260,43 +280,27 @@ async def test_announcement(ctx, *, streamer_name=None):
     
     await ctx.send(f"🧪 **Test-Ankündigung:**\n{message}")
 
-# HTTP Server für UptimeRobot (läuft parallel)
-from aiohttp import web
-import threading
-
-async def health_check(request):
-    return web.Response(text="Bot läuft! Chaosquartier ist bereit! 🎪", status=200)
-
-async def start_web_server():
-    app = web.Application()
-    app.router.add_get('/', health_check)
-    app.router.add_get('/health', health_check)
-    
-    runner = web.AppRunner(app)
-    await runner.setup()
-    
-    port = int(os.environ.get('PORT', 8080))
-    site = web.TCPSite(runner, '0.0.0.0', port)
-    await site.start()
-    print(f"🌐 Web Server läuft auf Port {port}")
-
 @bot.event
 async def on_error(event, *args, **kwargs):
     print(f"❌ Bot Fehler in {event}: {args}")
 
 # Bot starten
-if __name__ == "__main__":
-    # Starte Web Server in eigenem Task
-    import asyncio
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
-    
+async def main():
+    """Startet Bot und Web Server parallel"""
     # Starte Web Server
-    loop.create_task(start_web_server())
+    await start_web_server()
     
     # Starte Bot
     try:
-        bot.run(DISCORD_TOKEN)
+        await bot.start(DISCORD_TOKEN)
     except Exception as e:
         print(f"❌ Bot konnte nicht gestartet werden: {e}")
         print("💡 Stelle sicher, dass DISCORD_TOKEN gesetzt ist!")
+
+if __name__ == "__main__":
+    try:
+        asyncio.run(main())
+    except KeyboardInterrupt:
+        print("🛑 Bot gestoppt!")
+    except Exception as e:
+        print(f"❌ Fehler beim Starten: {e}")
